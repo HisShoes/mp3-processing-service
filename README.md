@@ -14,6 +14,19 @@ API Response should be in the form:
 }
 ```
 
+### Research
+
+[MPEG Specification research](https://www.mp3-tech.org/programmer/frame_header.html)
+
+Frame Headers are 32 bits (4 bytes), representing:
+* 11 are frame sync bits - expected to all be 1
+* 2 for MPEG version
+* 2 for Layer
+* 1 for Protection bit
+* 4 for bitrate index
+* 2 for sampling rate index
+* Others not required for this task
+
 ## Tech Choices
 
 * Typescript (required)
@@ -22,7 +35,7 @@ API Response should be in the form:
 
 ### AI Usage
 
-Co pilot was used for implementing bitwise operations in `mp3/parse-frame-header.ts` - This is exactly the kind of thing AI is great for. I looked up the spec and explained exactly what I needed, laid out the functions as I wanted them then got copilot to do the heavy lifting with bitwise ops. 
+Co pilot was used for implementing logic and bitwise operations in `mp3/parse-frame-header.ts` - This is exactly the kind of thing AI is great for, small fixed scope work. I looked up the spec and explained exactly what I needed, laid out the functions as I wanted them then got copilot to do the heavy lifting with bitwise ops. 
 
 After generating the code I've done a pass to tidy up anything it got wrong, formatted weirdly or didn't work quite the way I wanted.
 
@@ -38,24 +51,24 @@ I've allocated ~2-3 hours for this tech test, calling out things I would progres
 * Optimisations, essential for larger files and a production environment
     - Make it an async process - the user uploads an MP3 then the file is processed offline
     - Streaming larger files rather than loading whole files into memory
-    - Loop through buffers using framesize rather than `+=1`, drastically cut down the loops
+* Support other file formats
 
 ## Getting Started
 
 ### Installing and Running
-#### Bun (Recommended)
+
+#### npm
 
 To install dependencies:
 ```sh
-bun install
+npm install
 ```
 
 To run:
 ```sh
-bun run dev
+npm run dev
 ```
 
-#### npm
 
 ### Testing the API
 
