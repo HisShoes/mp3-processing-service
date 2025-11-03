@@ -1,9 +1,11 @@
-import { Hono } from 'hono'
+import { Hono } from 'hono';
+import { logger } from "hono/logger";
+import mp3 from "./routes/mp3";
 
-const app = new Hono()
+const app = new Hono();
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+app.use(logger());
 
-export default app
+app.route("/", mp3);
+
+export default app;
