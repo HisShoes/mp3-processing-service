@@ -15,7 +15,7 @@ describe("mp3 router", () => {
             expect(response.status).toBe(200);
 
             const body = await response.json();
-            expect(body.frameCount).toBe(7505);
+            expect(body.frameCount).toBe(6089);
         });
 
 

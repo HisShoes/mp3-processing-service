@@ -15,7 +15,7 @@ type MPEGLayer = "UNKNOWN" | "LAYER_1" | "LAYER_2" | "LAYER_3";
 // Only supports MPEG v1 and Layer 3 at the moment
 export const parseFrameHeader = (bytes: Uint8Array) => {
     // 2 bytes required to check the values we are looking for
-    if (bytes.byteLength < 2) return;
+    if (bytes.byteLength < 4) return;
 
     if (!hasFrameSyncBits(bytes)) {
         return;
@@ -23,10 +23,12 @@ export const parseFrameHeader = (bytes: Uint8Array) => {
 
     const mpegVersion = getMpegVersion(bytes[1]);
     const layer = getLayer(bytes[1]);
+    const frameLength = getFrameLength(bytes);
 
     return {
         mpegVersion,
         layer,
+        frameLength
         // protection
         // bitrate
         // sample rate
@@ -74,4 +76,52 @@ export const getLayer = (bits: number): MPEGLayer => {
         default:
             return "UNKNOWN";
     }
+};
+
+// Bitrate lookup tables (kbps)
+const BITRATE_TABLE: Record<string, number[]> = {
+    // Only common values for MPEG V1, Layer III and MPEG V2, Layer III
+    // Index 0 is 'free', 1 is 32kbps, etc. (see spec)
+    // MPEG V1, Layer III
+    'MPEG_V1_L3': [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0],
+    // MPEG V2, Layer III
+    'MPEG_V2_L3': [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0],
+};
+
+// Sample rate lookup tables (Hz)
+const SAMPLERATE_TABLE: Record<string, number[]> = {
+    'MPEG_V1': [44100, 48000, 32000, 0],
+    'MPEG_V2': [22050, 24000, 16000, 0],
+};
+
+export const getFrameLength = (bytes: Uint8Array): number | undefined => {
+    if (bytes.length < 4) return undefined;
+
+    const version = getMpegVersion(bytes[1]);
+
+    // Bitrate index: bits 7..4 of third byte
+    const bitrateIdx = (bytes[2] & 0xF0) >> 4;
+    // Sample rate index: bits 3..2 of third byte
+    const samplerateIdx = (bytes[2] & 0x0C) >> 2;
+    // Padding bit: bit 1 of third byte
+    const padding = (bytes[2] & 0x02) >> 1;
+
+    let bitrate: number | undefined;
+    let samplerate: number | undefined;
+    if (version === "MPEG_V1") {
+        bitrate = BITRATE_TABLE['MPEG_V1_L3'][bitrateIdx] * 1000;
+        samplerate = SAMPLERATE_TABLE['MPEG_V1'][samplerateIdx];
+    } else if (version === "MPEG_V2") {
+        bitrate = BITRATE_TABLE['MPEG_V2_L3'][bitrateIdx] * 1000;
+        samplerate = SAMPLERATE_TABLE['MPEG_V2'][samplerateIdx];
+    } else {
+        return undefined;
+    }
+    if (!bitrate || !samplerate) return undefined;
+
+    // Frame length formula for Layer III:
+    // V1: frameLen = 144 * bitrate / samplerate + padding
+    // V2: frameLen = 72 * bitrate / samplerate + padding
+    const coeff = version === "MPEG_V1" ? 144 : 72;
+    return Math.floor((coeff * bitrate) / samplerate + padding);
 };

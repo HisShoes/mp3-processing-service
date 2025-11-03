@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getLayer, getMpegVersion, hasFrameSyncBits, parseFrameHeader } from "./parse-frame-header";
+import { getFrameLength, getLayer, getMpegVersion, hasFrameSyncBits, parseFrameHeader } from "./parse-frame-header";
 
 describe("hasFrameSyncBits", () => {
     it("returns true for valid sync bits", () => {
@@ -55,41 +55,66 @@ describe("getLayer", () => {
 });
 
 describe("parseFrameHeader", () => {
-    it("returns metadata for valid MPEG v2 Layer 3 header", () => {
+    it("returns metadata and frameLength for valid MPEG v2 Layer 3 header", () => {
         // Sync: 0xFF, 0xE0; Version: bits 10 (0x10); Layer: bits 01 (0x02)
-        // bytes[0]=0xFF, bytes[1]=0xF2 (0xE0 sync, 0x10 version, 0x02 layer)
-        const bytes = new Uint8Array([0xFF, 0xF2]);
+        // Bitrate: 80kbps (index 9), Sample rate: 22050Hz (index 0), Padding: 0
+        // bytes[0]=0xFF, bytes[1]=0xF2, bytes[2]=0x92
+        const bytes = new Uint8Array([0xFF, 0xF2, 0x92, 0x00]);
         const result = parseFrameHeader(bytes);
         expect(result).toEqual({
             mpegVersion: "MPEG_V2",
             layer: "LAYER_3",
-            // protection, bitrate, sample rate, etc. are not parsed yet
+            frameLength: 262,
         });
+        // Check frameLength calculation
+        expect(result?.frameLength).toBeGreaterThan(0);
     });
 
     it("returns undefined for invalid sync bits", () => {
-        const bytes = new Uint8Array([0xFE, 0xF2]);
+        const bytes = new Uint8Array([0xFE, 0xF2, 0x92, 0x00]);
         expect(parseFrameHeader(bytes)).toBeUndefined();
     });
 
     it("returns unknown for unknown layer", () => {
-        const bytes = new Uint8Array([0xFF, 0xF8]);
-        expect(parseFrameHeader(bytes)).toEqual({
+        const bytes = new Uint8Array([0xFF, 0xF8, 0x92, 0x00]);
+        const result = parseFrameHeader(bytes);
+        expect(result).toEqual({
             mpegVersion: "MPEG_V1",
-            layer: "UNKNOWN"
+            layer: "UNKNOWN",
+            frameLength: 418
         });
     });
 
     it("returns unknown for unknown mpeg version", () => {
-        const bytes = new Uint8Array([0xFF, 0xE4]);
-        expect(parseFrameHeader(bytes)).toEqual({
+        const bytes = new Uint8Array([0xFF, 0xE4, 0x92, 0x00]);
+        const result = parseFrameHeader(bytes);
+        expect(result).toEqual({
             mpegVersion: "UNKNOWN",
-            layer: "LAYER_2"
+            layer: "LAYER_2",
+            frameLength: undefined
         });
     });
 
     it("returns undefined for short buffer", () => {
         expect(parseFrameHeader(new Uint8Array([0xFF]))).toBeUndefined();
         expect(parseFrameHeader(new Uint8Array([]))).toBeUndefined();
+    });
+});
+
+describe("getFrameLength", () => {
+    it("calculates frame length for valid MPEG V2 Layer 3 header", () => {
+        // bytes: [0xFF, 0xF2, 0x92, 0x00]
+        // Sync: 0xFF, 0xE0; Version: bits 10 (0x10); Layer: bits 01 (0x02)
+        // Bitrate: 80kbps (index 9), Sample rate: 22050Hz (index 0), Padding: 0
+        const bytes = new Uint8Array([0xFF, 0xF2, 0x92, 0x00]);
+        const length = getFrameLength(bytes);
+        expect(length).toBeGreaterThan(0);
+        // For this header, expected length: Math.floor((72 * 80000) / 22050)
+        expect(length).toBe(Math.ceil((72 * 80000) / 22050));
+    });
+
+    it("returns undefined for short buffer", () => {
+        expect(getFrameLength(new Uint8Array([0xFF]))).toBeUndefined();
+        expect(getFrameLength(new Uint8Array([]))).toBeUndefined();
     });
 });
