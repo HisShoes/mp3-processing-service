@@ -15,11 +15,10 @@ app.post('/file-upload', async (c) => {
         return c.text("invalid request, expected an MP3 file in upload field of request", 400);
     }
 
-    const buffer = await file.arrayBuffer();
-
     try {
         // verify the file type matches the spec
         // anything other than MPEG v1 and Layer 3 is rejected
+        const buffer = await file.arrayBuffer();
         const firstFrame = getFirstFrame(buffer);
         if (firstFrame?.layer !== 'LAYER_3' || firstFrame.mpegVersion !== "MPEG_V1") {
             return c.text("invalid request, expected MPEG version 1 and Layer 3", 400);
