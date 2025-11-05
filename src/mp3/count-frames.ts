@@ -10,7 +10,6 @@ export const countFrames = (buffer: ArrayBuffer) => {
         const bytes = new Uint8Array(buffer.slice(index, index + 4));
         const frameData = parseFrameHeader(bytes);
 
-        // frameLength should be calculated and attached to frameData
         const frameLength = frameData?.frameLength;
         if (!frameData || !frameLength || index + frameLength > buffer.byteLength) {
             index += 1; // move forward one byte and try again
